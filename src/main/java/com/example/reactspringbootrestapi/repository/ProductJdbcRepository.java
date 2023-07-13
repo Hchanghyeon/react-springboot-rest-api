@@ -2,20 +2,18 @@ package com.example.reactspringbootrestapi.repository;
 
 import com.example.reactspringbootrestapi.model.Category;
 import com.example.reactspringbootrestapi.model.Product;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import javax.sql.DataSource;
-import java.nio.ByteBuffer;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import org.springframework.stereotype.Repository;
 
 import static com.example.reactspringbootrestapi.Utils.toLocalDateTime;
 import static com.example.reactspringbootrestapi.Utils.toUUID;
 
+@Repository
 public class ProductJdbcRepository implements ProductRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -26,40 +24,70 @@ public class ProductJdbcRepository implements ProductRepository {
 
     @Override
     public List<Product> findAll() {
-        return null;
+        return jdbcTemplate.query("select * from products", productRowMapper);
     }
 
     @Override
     public Product insert(Product product) {
-        return null;
+        var update = jdbcTemplate.update("INSERT INTO products(product_id, product_name, category, price, description, created_at, updated_at)" +
+                " VALUES (:productId, :productName, :category, :price, :description, :createdAt, :updatedAt)", toParamMap(product));
+        if (update != 1) {
+            throw new RuntimeException("Noting was inserted");
+        }
+        return product;
     }
 
     @Override
     public Product update(Product product) {
-        return null;
+        var update = jdbcTemplate.update(
+                "UPDATE products SET product_name = :productName, category = :category, price = :price, description = :description, created_at = :createdAt, updated_at = :updatedAt" +
+                        " WHERE product_id = :productId",toParamMap(product));
+        if (update != 1) {
+            throw new RuntimeException("Nothing was updated");
+        }
+        return product;
     }
+
 
     @Override
     public Optional<Product> findById(UUID productId) {
-        return Optional.empty();
+        try {
+            return Optional.ofNullable(
+                    jdbcTemplate.queryForObject("SELECT * FROM products WHERE product_id = :productId",
+                            Collections.singletonMap("productId", productId.toString()), productRowMapper)
+            );
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
     public Optional<Product> findByName(String productName) {
-        return Optional.empty();
+        try {
+            return Optional.ofNullable(
+                    jdbcTemplate.queryForObject("SELECT * FROM products WHERE product_name = :productName",
+                            Collections.singletonMap("productName", productName), productRowMapper)
+            );
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
     public List<Product> findByCategory(Category category) {
-        return null;
+        return jdbcTemplate.query(
+                "SELECT * FROM products WHERE category = :category",
+                Collections.singletonMap("category", category.toString()),
+                productRowMapper
+        );
     }
 
     @Override
     public void deleteAll() {
-
+        jdbcTemplate.update("DELETE FROM products", Collections.emptyMap());
     }
 
-    private RowMapper<Product> productRowMapper = (resultSet, i) -> {
+    private static final RowMapper<Product> productRowMapper = (resultSet, i) -> {
         var productId = toUUID(resultSet.getBytes("product_id"));
         var productName = resultSet.getString("product_name");
         var category = Category.valueOf(resultSet.getString("category"));
@@ -67,14 +95,18 @@ public class ProductJdbcRepository implements ProductRepository {
         var description = resultSet.getString("description");
         var createdAt = toLocalDateTime(resultSet.getTimestamp("created_at"));
         var updatedAt = toLocalDateTime(resultSet.getTimestamp("updated_at"));
-
-        return new Product(productId,
-                productName,
-                category,
-                price,
-                description,
-                createdAt,
-                updatedAt
-        );
+        return new Product(productId, productName, category, price, description, createdAt, updatedAt);
     };
+
+    private Map<String, Object> toParamMap(Product product) {
+        var paramMap = new HashMap<String, Object>();
+        paramMap.put("productId", product.getProductId().toString());
+        paramMap.put("productName", product.getProductName());
+        paramMap.put("category", product.getCategory().toString());
+        paramMap.put("price", product.getPrice());
+        paramMap.put("description", product.getDescription());
+        paramMap.put("createdAt", product.getCreatedAt());
+        paramMap.put("updatedAt", product.getUpdatedAt());
+        return paramMap;
+    }
 }
