@@ -9,13 +9,22 @@ class EmailTest {
     @Test
     public void testInvalidEmail(){
         assertThrows(IllegalArgumentException.class, () -> {
-            Email email = new Email("acccc");
+            new Email("acccc");
         });
     }
 
     @Test
     public void testvalidEmail(){
         Email email = new Email("hello@gmail.com");
-        assertTrue(email.getAddress().equals("hello@mgmail.com"));
+        assertEquals("hello@gmail.com", email.getAddress());
+    }
+
+    @Test
+    public void testEqEmail(){
+        Email email = new Email("hello@gmail.com");
+        Email email2 = new Email("hello@gmail.com");
+
+        assertEquals(email, email2);
     }
 }
+
